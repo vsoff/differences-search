@@ -7,7 +7,7 @@ namespace DifferencesSearch
     public class PropertyDifference
     {
         public Type ClassType { get; set; }
-        public Type FieldType { get; set; }
+        public Type PropertyType { get; set; }
         public string PropertyName { get; set; }
         public object ValueLeft { get; set; }
         public object ValueRight { get; set; }
