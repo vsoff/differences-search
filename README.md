@@ -29,9 +29,7 @@ DifferenceController differenceController = new DifferenceController();
 
 // STEP 2: Set up auto search with builder (you can skip this step).
 differenceController.AutoBuilder<People>()
-    .All(x => x)
-    .One(x => x.SweetHome.Address)
-    .One(x => x.SweetHome.RoomNumber)
+    .Ignore(x => x.SweetHome.RoomNumber)
     .Build();
     
 People p1 = /* ... */;
