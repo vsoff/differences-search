@@ -1,4 +1,5 @@
 ﻿using DifferencesSearch.Extensions;
+using DifferencesSearch.Trees;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,14 +17,14 @@ namespace DifferencesSearch.Builders
 
     public class AutoDifferenceSearchBuilder<TSource> : IAutoDifferenceSearchBuilder<TSource>
     {
-        private BuildTreeNode _buildRootNode;
+        private BuildTreeNode<AutoBuildTreeNodeConfig> _buildRootNode;
 
         public PropertiesTreeNode PropertyTree { get; private set; }
 
         public AutoDifferenceSearchBuilder()
         {
             PropertyTree = null;
-            _buildRootNode = new BuildTreeNode(typeof(TSource));
+            _buildRootNode = new BuildTreeNode<AutoBuildTreeNodeConfig>(typeof(TSource));
         }
 
         public void Build()
@@ -35,13 +36,13 @@ namespace DifferencesSearch.Builders
             PropertyTree = root;
         }
 
-        private void DepthBuild(BuildTreeNode buildNode, PropertiesTreeNode newNode)
+        private void DepthBuild(BuildTreeNode<AutoBuildTreeNodeConfig> buildNode, PropertiesTreeNode newNode)
         {
             PropertyInfo[] allTypeProperties = buildNode.PropertyType.GetProperties();
 
             // Исключаем все игнорируемые поля.
             PropertyInfo[] neededProperties = allTypeProperties
-                .Where(info => !buildNode.IgnoredProperties.Contains(info.Name)).ToArray();
+                .Where(info => !buildNode.Config.IgnoredProperties.Contains(info.Name)).ToArray();
 
             // Создаём другие node дерева.
             List<PropertiesTreeNode> newNodes = new List<PropertiesTreeNode>();
@@ -50,7 +51,7 @@ namespace DifferencesSearch.Builders
                 // Если в build версии дерева есть node, тогда проходим по его правилам.
                 if (buildNode.ChildNodes.ContainsKey(info.Name))
                 {
-                    if (buildNode.ChildNodes[info.Name].IsDeadEnd)
+                    if (buildNode.ChildNodes[info.Name].Config.IsDeadEnd)
                         continue;
 
                     var newInnerNode = new PropertiesTreeNode(info);
@@ -61,7 +62,7 @@ namespace DifferencesSearch.Builders
                 else if (!info.PropertyType.IsSimple())
                 {
                     var newInnerNode = new PropertiesTreeNode(info);
-                    DepthBuild(info.PropertyType, newInnerNode);
+                    DifferenceSearchBuilderExtensions.AutoDepthBuild(info.PropertyType, newInnerNode);
                     newNodes.Add(newInnerNode);
                 }
             }
@@ -70,39 +71,28 @@ namespace DifferencesSearch.Builders
             newNode.Nodes = newNodes.ToArray();
         }
 
-        // TODO Надо добавить Hashset<Type> чтобы отслеживать рекурсии и на них реагировать эксепшеном.
-        private void DepthBuild(Type type, PropertiesTreeNode newNode)
-        {
-            PropertyInfo[] allTypeProperties = type.GetProperties();
-
-            if (allTypeProperties.Any(x => x.PropertyType == type))
-                throw new ArgumentException($"Property type matched class type. Stack overflow is inevitable. Type: '{type}'");
-
-            List<PropertiesTreeNode> newNodes = new List<PropertiesTreeNode>();
-            foreach (var info in allTypeProperties)
-            {
-                if (!info.PropertyType.IsSimple())
-                {
-                    var newInnerNode = new PropertiesTreeNode(info);
-                    DepthBuild(info.PropertyType, newInnerNode);
-                    newNodes.Add(newInnerNode);
-                }
-            }
-
-            newNode.InnerProperties = allTypeProperties;
-            newNode.Nodes = newNodes.ToArray();
-        }
-
         public IAutoDifferenceSearchBuilder<TSource> Ignore<TProp>(Expression<Func<TSource, TProp>> expression)
         {
-            _buildRootNode.AddExpressionToTree(expression, (node, property) => node.IgnoredProperties.Add(property.Name));
+            _buildRootNode.AddExpressionToTree(expression, (node, property) => node.Config.IgnoredProperties.Add(property.Name), true);
             return this;
         }
 
         public IAutoDifferenceSearchBuilder<TSource> Stop<TProp>(Expression<Func<TSource, TProp>> expression) where TProp : class
         {
-            _buildRootNode.AddExpressionToTree(expression, (node, property) => node.IsDeadEnd = true);
+            _buildRootNode.AddExpressionToTree(expression, (node, property) => node.Config.IsDeadEnd = true);
             return this;
+        }
+
+        internal class AutoBuildTreeNodeConfig : BuildTreeNodeConfig
+        {
+            public HashSet<string> IgnoredProperties { get; }
+            public bool IsDeadEnd { get; set; }
+
+            public AutoBuildTreeNodeConfig()
+            {
+                IsDeadEnd = false;
+                IgnoredProperties = new HashSet<string>();
+            }
         }
     }
 }

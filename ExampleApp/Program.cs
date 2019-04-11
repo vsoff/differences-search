@@ -13,9 +13,11 @@ namespace ExampleApp
             differenceController.CustomBuilder<People>()
                 .One(x => x.Phone)
                 .All(x => x.SweetHome)
+                //.GoDepth(x => x.SweetHome)
                 .Build();
 
             differenceController.AutoBuilder<People>()
+                .Stop(x => x.SweetHome)
                 .Build();
 
             People p1 = new People
@@ -40,9 +42,9 @@ namespace ExampleApp
                 SweetHome = new Home
                 {
                     Id = 222,
+                    IsPrivate = true,
                     Address = "ulitsa Pushkina, dom Kolotushkina, 47",
                     RoomNumber = 1234,
-                    IsPrivate = true,
                     Square = 120,
                     Floor = 34,
                 }
